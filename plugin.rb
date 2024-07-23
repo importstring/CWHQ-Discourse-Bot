@@ -429,3 +429,72 @@ after_initialize do
 end
 
 
+# onboarding_checklist.rb
+# This plugin adds extra functionality to the @system user on a Discourse forum.
+
+# MIT License
+
+after_initialize do
+  # Define the onboarding tasks
+  ONBOARDING_TASKS = {
+    fill_out_profile: "Fill out your profile",
+    first_post: "Make your first post",
+    read_guidelines: "Read the community guidelines"
+  }
+
+  # Method to send a private message
+  def send_pm(title, text, user)
+    message = PostCreator.create!(
+      Discourse.system_user,
+      title: title,
+      raw: text,
+      archetype: Archetype.private_message,
+      target_usernames: user,
+      skip_validations: true
+    )
+  end
+
+  # Method to check user progress
+  def check_user_progress(user)
+    progress = {}
+    progress[:fill_out_profile] = !user.user_profile.bio_raw.blank?
+    progress[:first_post] = user.post_count > 0
+    progress[:read_guidelines] = user.custom_fields['read_guidelines'] == true
+    progress
+  end
+
+  # Method to notify user about their progress
+  def notify_user_about_progress(user, progress)
+    message = "Hi #{user.username},\n\nHere is your onboarding checklist:\n\n"
+    ONBOARDING_TASKS.each do |task, description|
+      status = progress[task] ? "✓" : "✗"
+      message += "#{status} #{description}\n"
+    end
+    message += "\nPlease complete these tasks to get the most out of our community.\n\nBest,\nThe CWHQ Team"
+    send_pm("Your Onboarding Checklist", message, user.username)
+  end
+
+  # Schedule progress checks and notifications
+  Jobs::Regular.schedule_every('1d') do
+    User.where(active: true).each do |user|
+      progress = check_user_progress(user)
+      notify_user_about_progress(user, progress)
+    end
+  end
+
+  # Listen for user activity to update progress
+  DiscourseEvent.on(:user_updated) do |user|
+    if user.custom_fields['read_guidelines'] == true
+      progress = check_user_progress(user)
+      notify_user_about_progress(user, progress)
+    end
+  end
+
+  DiscourseEvent.on(:post_created) do |post|
+    user = post.user
+    if user.post_count == 1
+      progress = check_user_progress(user)
+      notify_user_about_progress(user, progress)
+    end
+  end
+end
