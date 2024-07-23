@@ -276,4 +276,87 @@ after_initialize do
     )
   end
 end
+after_initialize do
+  PROFANE_WORDS = [
+    "arse", "arsehead", "arsehole", "ass", "ass hole", "asshole", "bastard", "bitch", "bloody", "bollocks", 
+    "brotherfucker", "bugger", "bullshit", "child-fucker", "Christ on a bike", "Christ on a cracker", "cock", 
+    "cocksucker", "crap", "cunt", "dammit", "damn", "damned", "damn it", "dick", "dick-head", "dickhead", 
+    "dumb ass", "dumb-ass", "dumbass", "dyke", "father-fucker", "fatherfucker", "frigger", "fuck", "fucker", 
+    "fucking", "god dammit", "god damn", "goddammit", "God damn", "goddamn", "Goddamn", "goddamned", 
+    "goddamnit", "godsdamn", "hell", "holy shit", "horseshit", "in shit", "jack-ass", "jackarse", "jackass", 
+    "Jesus Christ", "Jesus fuck", "Jesus H. Christ", "Jesus Harold Christ", "Jesus, Mary and Joseph", "Jesus wept", 
+    "kike", "mother fucker", "mother-fucker", "motherfucker", "nigga", "nigra", "pigfucker", "piss", "prick", 
+    "pussy", "shit", "shit ass", "shite", "sibling fucker", "sisterfuck", "sisterfucker", "slut", 
+    "son of a whore", "son of a bitch", "spastic", "sweet Jesus", "twat", "wanker"
+  ]
+
+  HELP_LINKS = "
+    [Forum Videos](https://forum.codewizardshq.com/t/informational-videos/8662)
+    [Rules Of The Forum](https://forum.codewizardshq.com/t/rules-of-the-codewizardshq-community-forum/43)
+    [Create Good Questions And Answers](https://forum.codewizardshq.com/t/create-good-questions-and-answers/69)
+    [Forum Guide](https://forum.codewizardshq.com/t/forum-new-user-guide/47)
+    [Meet Forum Helpers](https://forum.codewizardshq.com/t/meet-the-forum-helpers/5474)
+    [System Documentation](https://forum.codewizardshq.com/t/system-add-on-plugin-documentation/8742)
+    [Understanding Trust Levels](https://blog.discourse.org/2018/06/understanding-discourse-trust-levels/)
+    [Forum Information Category](https://forum.codewizardshq.com/c/official/information/69)"
+
+  DiscourseEvent.on(:post_created) do |post|
+    next if post.user_id == -1 # Ignore system posts
+
+    # Check for profanity
+    if PROFANE_WORDS.any? { |word| post.raw.downcase.include?(word) }
+      post.flag(Discourse.system_user, PostActionType.types[:inappropriate])
+      send_pm("Inappropriate Content Detected", "Your post contains inappropriate language and has been flagged for review.", post.user.username)
+      log_command("flagged for inappropriate content", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+    end
+
+    # Check for spam (repeated links or posts)
+    if post.raw.scan(/https?:\/\//).count > 5 # Adjust the threshold as needed
+      post.flag(Discourse.system_user, PostActionType.types[:spam])
+      send_pm("Spam Detected", "Your post appears to be spam and has been flagged for review.", post.user.username)
+      log_command("flagged for spam", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+    end
+
+    # Custom commands
+    if post.raw.downcase.include?("@system help advanced")
+      text = "Hello @#{post.user.username}, here are some advanced resources to help you on the forum:#{HELP_LINKS}"
+      create_post(post.topic_id, text)
+      log_command("sent advanced help", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+      PostDestroyer.new(Discourse.system_user, post).destroy
+    end
+  end
+
+  DiscourseEvent.on(:user_created) do |user|
+    system_user = Discourse.system_user
+    welcome_message = <<~TEXT
+      Hi #{user.username},
+
+      Welcome to the CWHQ Discourse Forum! We're glad to have you here. If you have any questions or need assistance, feel free to ask.
+
+      Best,
+      The CWHQ Team
+    TEXT
+
+    PostCreator.create!(
+      system_user,
+      target_user: user,
+      title: "Welcome to CWHQ!",
+      raw: welcome_message
+    )
+  end
+
+  def post_summary
+    popular_topics = Topic.order('views DESC').limit(5) # Top 5 most viewed topics
+    summary = "Here are the top discussions:\n\n"
+    popular_topics.each do |topic|
+      summary += "* [#{topic.title}](https://forum.codewizardshq.com/t/#{topic.id}) - #{topic.views} views\n"
+    end
+
+    create_post(11303, summary) # Replace 11303 with the topic ID where you want to post the summary
+  end
+
+  # Schedule the summary to post daily or weekly
+  Jobs::Regular.schedule_every('1d') { post_summary } # '1d' for daily, '7d' for weekly
+end
+
 
