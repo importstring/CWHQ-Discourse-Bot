@@ -256,3 +256,24 @@ after_initialize do
         
     end
 end
+after_initialize do
+  DiscourseEvent.on(:user_created) do |user|
+    system_user = Discourse.system_user
+    welcome_message = <<~TEXT
+      Hi #{user.username},
+
+      Welcome to the CWHQ Discourse Forum! We're glad to have you here. If you have any questions or need assistance, feel free to ask.
+
+      Best,
+      The CWHQ Team
+    TEXT
+
+    PostCreator.create!(
+      system_user,
+      target_user: user,
+      title: "Welcome to CWHQ!",
+      raw: welcome_message
+    )
+  end
+end
+
