@@ -6,7 +6,7 @@
 
 require 'date'
 
-# Hash of course IDs and corresponding URLs or project identifiers
+# Initialize the courses hash with course IDs and corresponding URLs or identifiers
 courses = Hash.new
 courses = {
     11 => "https://scratch.mit.edu/projects/00000000/",
@@ -43,7 +43,7 @@ courses = {
     76 => "h34_capstone_00"
 }
 
-# Retrieves the link for a given course ID and username
+# Function to get a project link based on ID, username, and courses hash
 def get_link(id, username, hash)
     if id == 11 || id == 57
         return "`https://scratch.mit.edu/projects/00000000`" 
@@ -57,7 +57,7 @@ def get_link(id, username, hash)
     return false
 end
 
-# Creates a post in a specific topic
+# Function to create a post with a given topic ID and text
 def create_post(topicId, text)
     post = PostCreator.create(
         Discourse.system_user,
@@ -70,7 +70,7 @@ def create_post(topicId, text)
     end
 end
 
-# Closes a topic and sends a private message to the topic's author
+# Function to close a topic and send a PM to the author
 def closeTopic(id, message)
     topic = Topic.find_by(id: id)
     topic.update_status("closed", true, Discourse.system_user, { message: message })
@@ -78,7 +78,7 @@ def closeTopic(id, message)
     send_pm_to_author(author_username, id, message)
 end
 
-# Checks if the topic title includes specific links
+# Function to check if the topic title includes certain keywords
 def check_title(title)
     if title.downcase.include?("codewizardshq.com") || title.downcase.include?("scratch.mit.edu")
         return true
@@ -87,21 +87,21 @@ def check_title(title)
     end
 end
 
-# Checks if the text contains specific types of links
+# Function to check if the text includes valid link types
 def check_all_link_types(text)
     if (text.include?("codewizardshq.com") && !text.include?("/edit")) || (text.include?("cwhq-apps") || text.include?("scratch.mit.edu"))
         return true
     end
 end
 
-# Logs a command executed by a user to a specific log topic
+# Function to log commands with a link and name
 def log_command(command, link, name)
     log_topic_id = 11303
     text = "@#{name} #{command}:<br>#{link}"
     create_post(log_topic_id, text)
 end
 
-# Sends a private message to a user
+# Function to send a private message to a user
 def send_pm(title, text, user)
     message = PostCreator.create!(
         Discourse.system_user,
@@ -113,20 +113,21 @@ def send_pm(title, text, user)
     )
 end
 
-# Sends a private message to the author informing them that their topic has been closed
+# Function to send a PM to the author of a closed topic
 def send_pm_to_author(author_username, topic_id, message)
     title = "Your topic (ID: #{topic_id}) has been closed"
     text = "Hello @#{author_username},\n\nYour topic (ID: #{topic_id}) has been closed. Reason: #{message}\n\nIf you have any questions or need further assistance, feel free to reach out to us.\n\nBest regards,\nThe CodeWizardsHQ Team"
     send_pm(title, text, author_username)
 end
 
+# Initialize Discourse events
 after_initialize do
     DiscourseEvent.on(:topic_created) do |topic| 
-        newTopic = Post.find_by(topic_id: topic.id, post_number: 1)
-        topicRaw = newTopic.raw
-        lookFor = topic.user.username + ".codewizardshq.com"
-        # Determine the appropriate link for the topic
-        link = false
+        newTopic = Post.find_by(topic_id: topic.id, post_number: 1)  # Find the first post in the topic
+        topicRaw = newTopic.raw  # Get the raw content of the first post
+        lookFor = topic.user.username + ".codewizardshq.com"  # Generate the search string based on the username
+        
+        link = false  # Initialize link as false
         if link then
             if topicRaw.downcase.include?(lookFor + "/edit") then
                 text = "Hello @#{topic.user.username}, it appears that the link you provided goes to the editor, and not your project. Please open your project and use the link from that tab. This may look like " + link + "."
@@ -166,31 +167,28 @@ after_initialize do
             [Meet Forum Helpers](https://forum.codewizardshq.com/t/meet-the-forum-helpers/5474)
             [System Documentation](https://forum.codewizardshq.com/t/system-add-on-plugin-documentation/8742)
             [Understanding Trust Levels](https://blog.discourse.org/2018/06/understanding-discourse-trust-levels/)
-            [Forum Information Category](https://forum.codewizardshq.com/c/official/information/69)"
-            
-            if raw[0, 7].downcase == "@system" then
-                if raw.downcase.include?("topic closing") then
-                    link = get_link(post.topic_id, post.user.username, courses)
-                    if link then
-                        text = "The following topic you created or replied to has been closed and linked to a project: " + link
-                        create_post(post.topic_id, text)
-                        log_command("topic closed message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
-                    end
-                end
-            end
+            [Forum Information](https://forum.codewizardshq.com/t/guide-for-codewizards/8883)
+            "
 
-            if check_all_link_types(raw) then
-                text = "Hello @#{post.user.username}, we noticed that your post contains one or more links. Please check that your post includes the correct link and that it is relevant to your question or discussion. If your post contains incorrect or irrelevant links, it may be flagged. For more information, see the [Forum Rules](https://forum.codewizardshq.com/t/rules-of-the-codewizardshq-community-forum/43)."
-                create_post(post.topic_id, text)
-                log_command("posted a link message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+            if check_all_link_types(raw) && raw.include?("https://") && !raw.include?("/edit") && !raw.include?("cwhq-apps") then
+                if post.user.username != "system" then
+                    text = "Hello @#{post.user.username}, it appears you have shared a link. If you are sharing a project link or requesting help, please ensure the link directs to your project or is related to your request. Here is some helpful information about sharing links on the forum: #{helpLinks}"
+                    create_post(post.topic_id, text)
+                    log_command("received a link message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+                end
             end
         end
     end
 
-    # Event listener for topic updates
-    DiscourseEvent.on(:topic_updated) do |topic|
-        if topic.id == 32 then
-            closeTopic(topic.id, "This topic is no longer relevant.")
+    DiscourseEvent.on(:post_edited) do |post|
+        if post.post_number != 1 then
+            if post.raw.include?("https://") && !post.raw.include?("/edit") then
+                if post.user.username != "system" then
+                    text = "Hello @#{post.user.username}, it appears that you have edited your post to include a link. If you are sharing a project link or requesting help, please ensure the link directs to your project or is related to your request. Here is some helpful information about sharing links on the forum: #{helpLinks}"
+                    create_post(post.topic_id, text)
+                    log_command("received an edited link message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+                end
+            end
         end
     end
 end
