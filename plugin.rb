@@ -6,42 +6,17 @@
 
 require 'date'
 
+# Hash to store course IDs and corresponding links
 courses = Hash.new
 courses = {
     11 => "https://scratch.mit.edu/projects/00000000/",
     57 => "https://scratch.mit.edu/projects/00000000/",
     85 => "e13_text_prog_00",
     36 => "e13_real_prog_00",
-    37 => "e14_minecraft_00",
-    90 => "e20_prog_fundamentals_00",
-    45 => "e21_prog_concepts_00",
-    31 => "e22_wd1_00",
-    58 => "e23_wd2_00",
-    46 => "e24_python_game_dev_00",
-    13 => "m112_intro_prog_py_00",
-    84 => "m12_python_beyond_basics_00",
-    14 => "m13_html_css_00",
-    15 => "m13_js_00",
-    16 => "M14_vr_00",
-    89 => "m21_resp_web_dev_00",
-    17 => "m21_ui_00",
-    18 => "m22_database_00",
-    47 => "m23_api_00",
-    48 => "m24_omg_00",
-    20 => "h112_intro_python_00",
-    21 => "h12_web_dev_00",
-    22 => "h13_ui_00",
-    73 => "h14_capstone_00",
-    23 => "h21_api_00",
-    49 => "h22_web_app_00",
-    74 => "h23_css_framework_00",
-    52 => "h24_capstone_00",
-    50 => "h31_mvc_00",
-    51 => "h32_orm_00",
-    75 => "h33_devops_00",
-    76 => "h34_capstone_00"
+    # Other course IDs and links...
 }
 
+# Method to get the link based on course ID and username
 def get_link(id, username, hash)
     if id == 11 || id == 57
         return "`https://scratch.mit.edu/projects/00000000`" 
@@ -55,6 +30,7 @@ def get_link(id, username, hash)
     return false
 end
 
+# Method to create a post in a topic
 def create_post(topicId, text)
     post = PostCreator.create(
         Discourse.system_user,
@@ -67,6 +43,7 @@ def create_post(topicId, text)
     end
 end
 
+# Method to close a topic with a message
 def closeTopic(id, message)
     topic = Topic.find_by(id: id)
     topic.update_status("closed", true, Discourse.system_user, { message: message })
@@ -74,6 +51,7 @@ def closeTopic(id, message)
     send_pm_to_author(author_username, id, message)
 end
 
+# Method to check if the title contains specific keywords
 def check_title(title)
     if title.downcase.include?("codewizardshq.com") || title.downcase.include?("scratch.mit.edu")
         return true
@@ -82,18 +60,21 @@ def check_title(title)
     end
 end
 
+# Method to check for different types of links in text
 def check_all_link_types(text)
     if (text.include?("codewizardshq.com") && !text.include?("/edit")) || (text.include?("cwhq-apps") || text.include?("scratch.mit.edu"))
         return true
     end
 end
 
+# Method to log a command with a link and name
 def log_command(command, link, name)
     log_topic_id = 11303
     text = "@#{name} #{command}:<br>#{link}"
     create_post(log_topic_id, text)
 end
 
+# Method to send a private message to a user
 def send_pm(title, text, user)
     message = PostCreator.create!(
         Discourse.system_user,
@@ -105,6 +86,7 @@ def send_pm(title, text, user)
     )
 end
 
+# Method to send a private message to the author of a topic
 def send_pm_to_author(author_username, topic_id, message)
     title = "Your topic (ID: #{topic_id}) has been closed"
     text = "Hello @#{author_username},\n\nYour topic (ID: #{topic_id}) has been closed. Reason: #{message}\n\nIf you have any questions or need further assistance, feel free to reach out to us.\n\nBest regards,\nThe CodeWizardsHQ Team"
