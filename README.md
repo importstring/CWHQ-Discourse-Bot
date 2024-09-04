@@ -15,5 +15,7 @@ This plugin can:
 ## Contributing
 All pull requests must be error free and working as intended.
   
+<img src="https://cdn.coupert.com/mimg/merimg/20240103/355773_22562a916627c724e8203122a4479fca1452247199_origin_trans_white.webp" alt="CodeWizardsHQ Logo" width="1000" />
+
 ## License
 MIT
