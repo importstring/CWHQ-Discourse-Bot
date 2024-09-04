@@ -1,8 +1,5 @@
-# name: CWHQ-Discourse-Bot
-# about: This plugin adds extra functionality to the @system user on a Discourse forum.
-# version: 1.9.0
-# authors: Qursch, bronze0202, linuxmasters, sep208, Astr0clad, usrbinsam, daniel-schroeder-dev, sharpkeen, shriyash-shukla
-# url: https://github.com/codewizardshq/CWHQ-Discourse-Bot
+# CWHQ-Discourse-Bot Plugin
+# This plugin adds extra functionality to the @system user on a Discourse forum.
 
 require 'date'
 
