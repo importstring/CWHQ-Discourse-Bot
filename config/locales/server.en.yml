@@ -1,3 +1,4 @@
+# Enable helpful link suggestions for the bot
 en:
   site_settings:
     bot_enabled: "Enable helpful link suggestions"
