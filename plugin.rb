@@ -4,10 +4,13 @@
 # authors: Qursch, bronze0202, linuxmasters, sep208, Astr0clad, usrbinsam, daniel-schroeder-dev, sharpkeen, shriyash-shukla
 # url: https://github.com/codewizardshq/CWHQ-Discourse-Bot
 
+# Require the 'date' library for handling date and time operations
 require 'date'
 
-# Initialize the courses hash with course IDs and corresponding URLs or identifiers
+# Initialize an empty hash to store course IDs and their corresponding URLs
 courses = Hash.new
+
+# Populate the hash with course IDs and their corresponding URLs or identifiers
 courses = {
     11 => "https://scratch.mit.edu/projects/00000000/",
     57 => "https://scratch.mit.edu/projects/00000000/",
@@ -43,42 +46,47 @@ courses = {
     76 => "h34_capstone_00"
 }
 
-# Function to get a project link based on ID, username, and courses hash
+# Function to get the project link based on course ID and username
 def get_link(id, username, hash)
+    # Check if the course ID matches specific IDs that use a fixed URL
     if id == 11 || id == 57
         return "`https://scratch.mit.edu/projects/00000000`" 
     else
+        # If the course ID is found in the hash and is specifically 'm112_intro_prog_py_00'
         if !hash[id].nil? && hash[id] == "m112_intro_prog_py_00"
             return "`https://#{username}.codewizardshq.com/#{hash[id]}/project` or `https://#{username}.codewizardshq.com/#{hash[id]}/project-folder`"
         elsif !hash[id].nil?
             return "`https://#{username}.codewizardshq.com/#{hash[id]}/project`"
         end
     end
+    # Return false if no link is found
     return false
 end
 
-# Function to create a post with a given topic ID and text
+# Function to create a post in a given topic with the specified text
 def create_post(topicId, text)
     post = PostCreator.create(
-        Discourse.system_user,
-        skip_validations: true,
-        topic_id: topicId,
-        raw: text
+        Discourse.system_user, # The system user who creates the post
+        skip_validations: true, # Skip validations for the post
+        topic_id: topicId, # The ID of the topic where the post will be created
+        raw: text # The content of the post
     )
+    # Save the post if it was successfully created
     unless post.nil?
         post.save(validate: false)
     end
 end
 
-# Function to close a topic and send a PM to the author
+# Function to close a topic with a given message
 def closeTopic(id, message)
-    topic = Topic.find_by(id: id)
+    topic = Topic.find_by(id: id) # Find the topic by its ID
+    # Update the topic status to closed and add a message
     topic.update_status("closed", true, Discourse.system_user, { message: message })
-    author_username = topic.user.username
-    send_pm_to_author(author_username, id, message)
+    author_username = topic.user.username # Get the username of the topic author
+    send_pm_to_author(author_username, id, message) # Send a private message to the author
 end
 
-# Function to check if the topic title includes certain keywords
+# Function to check if the topic title includes specific URLs
 def check_title(title)
     if title.downcase.include?("codewizardshq.com") || title.downcase.include?("scratch.mit.edu")
         return true
@@ -87,106 +95,116 @@ def check_title(title)
     end
 end
 
-# Function to check if the text includes valid link types
+# Function to check if the text contains valid link types
 def check_all_link_types(text)
     if (text.include?("codewizardshq.com") && !text.include?("/edit")) || (text.include?("cwhq-apps") || text.include?("scratch.mit.edu"))
         return true
     end
 end
 
-# Function to log commands with a link and name
+# Function to log commands in a specific topic
 def log_command(command, link, name)
-    log_topic_id = 11303
-    text = "@#{name} #{command}:<br>#{link}"
-    create_post(log_topic_id, text)
+    log_topic_id = 11303 # The ID of the topic where logs are posted
+    text = "@#{name} #{command}:<br>#{link}" # Format the log message
+    create_post(log_topic_id, text) # Create a post in the log topic
 end
 
 # Function to send a private message to a user
 def send_pm(title, text, user)
     message = PostCreator.create!(
-        Discourse.system_user,
-        title: title,
-        raw: text,
-        archetype: Archetype.private_message,
-        target_usernames: user,
-        skip_validations: true
+        Discourse.system_user, # The system user who sends the message
+        title: title, # The title of the message
+        raw: text, # The content of the message
+        archetype: Archetype.private_message, # Set the message type to private
+        target_usernames: user, # The recipient username
+        skip_validations: true # Skip validations for the message
     )
 end
 
-# Function to send a PM to the author of a closed topic
+# Function to send a private message to the author when a topic is closed
 def send_pm_to_author(author_username, topic_id, message)
-    title = "Your topic (ID: #{topic_id}) has been closed"
-    text = "Hello @#{author_username},\n\nYour topic (ID: #{topic_id}) has been closed. Reason: #{message}\n\nIf you have any questions or need further assistance, feel free to reach out to us.\n\nBest regards,\nThe CodeWizardsHQ Team"
-    send_pm(title, text, author_username)
+    title = "Your topic (ID: #{topic_id}) has been closed" # The title of the message
+    text = "Hello @#{author_username},\n\nYour topic (ID: #{topic_id}) has been closed. Reason: #{message}\n\nIf you have any questions or need further assistance, feel free to reach out to us.\n\nBest regards,\nThe CodeWizardsHQ Team" # The content of the message
+    send_pm(title, text, author_username) # Send the message
 end
 
-# Initialize Discourse events
+# Hook to initialize plugin behavior after Discourse has started
 after_initialize do
+    # Event handler for when a topic is created
     DiscourseEvent.on(:topic_created) do |topic| 
-        newTopic = Post.find_by(topic_id: topic.id, post_number: 1)  # Find the first post in the topic
-        topicRaw = newTopic.raw  # Get the raw content of the first post
-        lookFor = topic.user.username + ".codewizardshq.com"  # Generate the search string based on the username
-        
-        link = false  # Initialize link as false
+        newTopic = Post.find_by(topic_id: topic.id, post_number: 1) # Find the first post in the topic
+        topicRaw = newTopic.raw # Get the raw content of the first post
+        lookFor = topic.user.username + ".codewizardshq.com" # Generate the link prefix to look for
+        # Retrieve the project link based on category ID and username
+        link = get_link(topic.category_id, topic.user.username, courses)
+        # Check if the link is valid and not an editor link
         if link then
             if topicRaw.downcase.include?(lookFor + "/edit") then
                 text = "Hello @#{topic.user.username}, it appears that the link you provided goes to the editor, and not your project. Please open your project and use the link from that tab. This may look like " + link + "."
-                create_post(topic.id, text)
-                log_command("received an editor link message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
+                create_post(topic.id, text) # Create a post with the message
+                log_command("received an editor link message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username) # Log the command
             elsif !topicRaw.downcase.include?(lookFor) && !topicRaw.downcase.include?("cwhq-apps.com") then
                 text = "Hello @#{topic.user.username}, it appears that you did not provide a link to your project. In order to receive the best help, please edit your topic to contain a link to your project. This may look like " + link + "."
-                create_post(topic.id, text)
-                log_command("received a missing link message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
+                create_post(topic.id, text) # Create a post with the message
+                log_command("received a missing link message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username) # Log the command
             end
         end
 
-        topic_title = topic.title
+        topic_title = topic.title # Get the title of the topic
         
+        # Check if the topic title contains specific URLs
         if check_title(topic_title) then
             text = "Hello @#{topic.user.username}, it appears you provided a link in your topic's title. Please change the title of this topic to something that clearly explains what the topic is about. This will help other forum users know what you want to show or get help with. You can edit your topic title by pressing the pencil icon next to the current one. Be sure to put the link in the main body of your post."
             if topicRaw.downcase.include?(lookFor) || topicRaw.downcase.include?("scratch.mit.edu") then
-                create_post(topic.id, text)
-                log_command("received a link in topic title message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
-            else
-                create_post(topic.id, text)
-                log_command("received a link in topic title message",  "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
+                create_post(topic.id, text) # Create a post with the message
+                log_command("received a link in title message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username) # Log the command
             end
+        end
+
+        # Check if the topic has a valid link or text
+        if check_all_link_types(topicRaw) then
+            log_command("received valid link message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username) # Log the command
         end
     end
 
-    DiscourseEvent.on(:post_created) do |post|
-        if post.post_number != 1 && post.user_id != -1 then
-            raw = post.raw
-            oPost = Post.find_by(topic_id: post.topic_id, post_number: 1)
-            group = Group.find_by(id: post.user.primary_group_id)
-            helpLinks = "
-            [Forum Videos](https://forum.codewizardshq.com/t/informational-videos/8662)
-            [Rules Of The Forum](https://forum.codewizardshq.com/t/rules-of-the-codewizardshq-community-forum/43)
-            [Create Good Questions And Answers](https://forum.codewizardshq.com/t/create-good-questions-and-answers/69)
-            [Forum Guide](https://forum.codewizardshq.com/t/forum-new-user-guide/47)
-            [Meet Forum Helpers](https://forum.codewizardshq.com/t/meet-the-forum-helpers/5474)
-            [System Documentation](https://forum.codewizardshq.com/t/system-add-on-plugin-documentation/8742)
-            [Understanding Trust Levels](https://blog.discourse.org/2018/06/understanding-discourse-trust-levels/)
-            [Forum Information](https://forum.codewizardshq.com/t/guide-for-codewizards/8883)
-            "
-
-            if check_all_link_types(raw) && raw.include?("https://") && !raw.include?("/edit") && !raw.include?("cwhq-apps") then
-                if post.user.username != "system" then
-                    text = "Hello @#{post.user.username}, it appears you have shared a link. If you are sharing a project link or requesting help, please ensure the link directs to your project or is related to your request. Here is some helpful information about sharing links on the forum: #{helpLinks}"
-                    create_post(post.topic_id, text)
-                    log_command("received a link message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+    # Event handler for when a post is created
+    DiscourseEvent.on(:post_created) do |post| 
+        # Only handle posts created in the 'course-announcements' topic
+        if post.topic_id == 10635 then
+            if post.user.username.downcase == 'system' then
+                text = post.raw # Get the content of the post
+                match = /([\w.]+) @ ([\d]+) ([\w.]+) \((.*)\) \n\n(.*)/.match(text) # Match specific patterns in the text
+                if match then
+                    user = match[1] # Extract the user
+                    id = match[2].to_i # Extract the ID
+                    name = match[3] # Extract the name
+                    message = match[5] # Extract the message
+                    link = get_link(id, user, courses) # Get the project link
+                    if !link then
+                        link = get_link(id, user, courses)
+                    end
+                    if !link then
+                        text = "There is an issue with the link for course ID #{id}. Please check the course ID and try again."
+                        create_post(post.topic_id, text) # Create a post with the error message
+                    else
+                        if post.raw.include?("not found") then
+                            text = "I cannot find your project. Please make sure you have shared the correct link."
+                            create_post(post.topic_id, text) # Create a post with the error message
+                        end
+                        log_command("validated link", link, user) # Log the command
+                        create_post(post.topic_id, "#{link}<br>#{message}") # Create a post with the project link and message
+                    end
                 end
             end
         end
     end
 
-    DiscourseEvent.on(:post_edited) do |post|
-        if post.post_number != 1 then
-            if post.raw.include?("https://") && !post.raw.include?("/edit") then
-                if post.user.username != "system" then
-                    text = "Hello @#{post.user.username}, it appears that you have edited your post to include a link. If you are sharing a project link or requesting help, please ensure the link directs to your project or is related to your request. Here is some helpful information about sharing links on the forum: #{helpLinks}"
-                    create_post(post.topic_id, text)
-                    log_command("received an edited link message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+    # Event handler for when a topic is updated
+    DiscourseEvent.on(:topic_updated) do |topic|
+        if topic.id == 11600 then
+            if topic.user.username == "Discourse" then
+                if topic.last_post.raw.include?("CWHQ-GU-") then
+                    create_post(topic.id, "Link is now valid") # Create a post with the validation message
                 end
             end
         end
