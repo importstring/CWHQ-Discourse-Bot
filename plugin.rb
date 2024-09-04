@@ -1,9 +1,12 @@
-# CWHQ-Discourse-Bot Plugin
-# This plugin adds extra functionality to the @system user on a Discourse forum.
+# name: CWHQ-Discourse-Bot
+# about: This plugin adds extra functionality to the @system user on a Discourse forum.
+# version: 1.9.0
+# authors: Qursch, bronze0202, linuxmasters, sep208, Astr0clad, usrbinsam, daniel-schroeder-dev, sharpkeen, shriyash-shukla
+# url: https://github.com/codewizardshq/CWHQ-Discourse-Bot
 
 require 'date'
 
-# Hash of course IDs mapped to their respective URLs or identifiers
+# Hash of course IDs and corresponding URLs or project identifiers
 courses = Hash.new
 courses = {
     11 => "https://scratch.mit.edu/projects/00000000/",
@@ -40,14 +43,10 @@ courses = {
     76 => "h34_capstone_00"
 }
 
-# Retrieve a link based on the course ID and username
-# @param id [Integer] the course ID
-# @param username [String] the username of the course author
-# @param hash [Hash] the hash containing course IDs and their corresponding URLs or identifiers
-# @return [String, FalseClass] the link to the course project or false if no valid link is found
+# Retrieves the link for a given course ID and username
 def get_link(id, username, hash)
     if id == 11 || id == 57
-        return "`https://scratch.mit.edu/projects/00000000`"
+        return "`https://scratch.mit.edu/projects/00000000`" 
     else
         if !hash[id].nil? && hash[id] == "m112_intro_prog_py_00"
             return "`https://#{username}.codewizardshq.com/#{hash[id]}/project` or `https://#{username}.codewizardshq.com/#{hash[id]}/project-folder`"
@@ -58,9 +57,7 @@ def get_link(id, username, hash)
     return false
 end
 
-# Create a post in a specified topic
-# @param topicId [Integer] the ID of the topic where the post should be created
-# @param text [String] the content of the post
+# Creates a post in a specific topic
 def create_post(topicId, text)
     post = PostCreator.create(
         Discourse.system_user,
@@ -73,9 +70,7 @@ def create_post(topicId, text)
     end
 end
 
-# Close a topic and notify the author
-# @param id [Integer] the ID of the topic to be closed
-# @param message [String] the reason for closing the topic
+# Closes a topic and sends a private message to the topic's author
 def closeTopic(id, message)
     topic = Topic.find_by(id: id)
     topic.update_status("closed", true, Discourse.system_user, { message: message })
@@ -83,9 +78,7 @@ def closeTopic(id, message)
     send_pm_to_author(author_username, id, message)
 end
 
-# Check if the topic title contains certain keywords
-# @param title [String] the title of the topic
-# @return [Boolean] true if the title contains specific keywords, otherwise false
+# Checks if the topic title includes specific links
 def check_title(title)
     if title.downcase.include?("codewizardshq.com") || title.downcase.include?("scratch.mit.edu")
         return true
@@ -94,29 +87,21 @@ def check_title(title)
     end
 end
 
-# Check if the text includes valid link types
-# @param text [String] the content of the post
-# @return [Boolean] true if the text contains valid link types, otherwise false
+# Checks if the text contains specific types of links
 def check_all_link_types(text)
     if (text.include?("codewizardshq.com") && !text.include?("/edit")) || (text.include?("cwhq-apps") || text.include?("scratch.mit.edu"))
         return true
     end
 end
 
-# Log a command with its details in a specified topic
-# @param command [String] the command issued
-# @param link [String] a relevant link to include in the log
-# @param name [String] the username of the person who issued the command
+# Logs a command executed by a user to a specific log topic
 def log_command(command, link, name)
     log_topic_id = 11303
     text = "@#{name} #{command}:<br>#{link}"
     create_post(log_topic_id, text)
 end
 
-# Send a private message to a user
-# @param title [String] the title of the private message
-# @param text [String] the content of the private message
-# @param user [String] the username of the recipient
+# Sends a private message to a user
 def send_pm(title, text, user)
     message = PostCreator.create!(
         Discourse.system_user,
@@ -128,22 +113,19 @@ def send_pm(title, text, user)
     )
 end
 
-# Notify the author of a closed topic via private message
-# @param author_username [String] the username of the author
-# @param topic_id [Integer] the ID of the closed topic
-# @param message [String] the reason for closing the topic
+# Sends a private message to the author informing them that their topic has been closed
 def send_pm_to_author(author_username, topic_id, message)
     title = "Your topic (ID: #{topic_id}) has been closed"
     text = "Hello @#{author_username},\n\nYour topic (ID: #{topic_id}) has been closed. Reason: #{message}\n\nIf you have any questions or need further assistance, feel free to reach out to us.\n\nBest regards,\nThe CodeWizardsHQ Team"
     send_pm(title, text, author_username)
 end
 
-# Event handler for when a topic is created
 after_initialize do
-    DiscourseEvent.on(:topic_created) do |topic|
+    DiscourseEvent.on(:topic_created) do |topic| 
         newTopic = Post.find_by(topic_id: topic.id, post_number: 1)
         topicRaw = newTopic.raw
         lookFor = topic.user.username + ".codewizardshq.com"
+        # Determine the appropriate link for the topic
         link = false
         if link then
             if topicRaw.downcase.include?(lookFor + "/edit") then
@@ -166,16 +148,49 @@ after_initialize do
                 log_command("received a link in topic title message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
             else
                 create_post(topic.id, text)
-                log_command("received a link in topic title message", "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
+                log_command("received a link in topic title message",  "https://forum.codewizardshq.com/t/#{topic.topic_id}", topic.user.username)
             end
         end
     end
 
-    # Event handler for when a post is created
     DiscourseEvent.on(:post_created) do |post|
-        if post.post_number != 1 && post.user_id != -1 && post.raw.downcase.include?("codewizardshq.com") then
-            text = "Hello @#{post.user.username}, it appears that you included a link in your post that is potentially an editor link. Please provide the final project link instead. This will help other users access and assist with your project effectively."
-            create_post(post.topic_id, text)
+        if post.post_number != 1 && post.user_id != -1 then
+            raw = post.raw
+            oPost = Post.find_by(topic_id: post.topic_id, post_number: 1)
+            group = Group.find_by(id: post.user.primary_group_id)
+            helpLinks = "
+            [Forum Videos](https://forum.codewizardshq.com/t/informational-videos/8662)
+            [Rules Of The Forum](https://forum.codewizardshq.com/t/rules-of-the-codewizardshq-community-forum/43)
+            [Create Good Questions And Answers](https://forum.codewizardshq.com/t/create-good-questions-and-answers/69)
+            [Forum Guide](https://forum.codewizardshq.com/t/forum-new-user-guide/47)
+            [Meet Forum Helpers](https://forum.codewizardshq.com/t/meet-the-forum-helpers/5474)
+            [System Documentation](https://forum.codewizardshq.com/t/system-add-on-plugin-documentation/8742)
+            [Understanding Trust Levels](https://blog.discourse.org/2018/06/understanding-discourse-trust-levels/)
+            [Forum Information Category](https://forum.codewizardshq.com/c/official/information/69)"
+            
+            if raw[0, 7].downcase == "@system" then
+                if raw.downcase.include?("topic closing") then
+                    link = get_link(post.topic_id, post.user.username, courses)
+                    if link then
+                        text = "The following topic you created or replied to has been closed and linked to a project: " + link
+                        create_post(post.topic_id, text)
+                        log_command("topic closed message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+                    end
+                end
+            end
+
+            if check_all_link_types(raw) then
+                text = "Hello @#{post.user.username}, we noticed that your post contains one or more links. Please check that your post includes the correct link and that it is relevant to your question or discussion. If your post contains incorrect or irrelevant links, it may be flagged. For more information, see the [Forum Rules](https://forum.codewizardshq.com/t/rules-of-the-codewizardshq-community-forum/43)."
+                create_post(post.topic_id, text)
+                log_command("posted a link message", "https://forum.codewizardshq.com/t/#{post.topic_id}", post.user.username)
+            end
+        end
+    end
+
+    # Event listener for topic updates
+    DiscourseEvent.on(:topic_updated) do |topic|
+        if topic.id == 32 then
+            closeTopic(topic.id, "This topic is no longer relevant.")
         end
     end
 end
