@@ -1,4 +1,8 @@
+# Configuration for plugins
 plugins:
+  # Whether the bot plugin is enabled
   bot_enabled:
+    # Default setting for the plugin
     default: true
+    # Client-specific setting for the plugin
     client: true
